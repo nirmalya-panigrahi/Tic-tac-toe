@@ -25,4 +25,5 @@ export interface GameHistoryEntry {
   move: Move;
   player: Player;
   timestamp: number;
+  analysis?: string;
 }

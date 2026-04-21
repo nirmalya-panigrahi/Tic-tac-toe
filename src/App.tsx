@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, RefreshCw, BrainCircuit, ChevronRight, MessageSquare, Info, Play, Lightbulb, X as CloseIcon, Undo2 } from 'lucide-react';
 import { Player, BoardState, Move, Difficulty, GameHistoryEntry } from './types';
 import { createInitialState, makeMove, isValidMove } from './lib/gameEngine';
-import { getBestMove } from './lib/aiEngine';
+import { getBestMove, evaluateHeuristic } from './lib/aiEngine';
 
 // --- Sub-components ---
 
@@ -223,24 +223,36 @@ export default function App() {
 
     setHint(null); // Clear hint on move
     const currentPlayer = gameState.currentPlayer;
+
+    // Tactical Analysis for Human Player
+    let analysis: string | undefined;
+    if (currentPlayer === 'X') {
+      const best = getBestMove(gameState, 'Grandmaster');
+      if (best.gridIndex === gridIndex && best.cellIndex === cellIndex) {
+        analysis = "OPTIMAL: You matched the Engine's best recommendation.";
+      } else {
+        analysis = `SUB-OPTIMAL: Engine preferred ${getGridName(best.gridIndex)} board at ${getGridName(best.cellIndex)}.`;
+      }
+    }
+
     const nextState = makeMove(gameState, { gridIndex, cellIndex });
     setGameState(nextState);
-    setHistory(prev => [{ move: { gridIndex, cellIndex }, player: currentPlayer, timestamp: Date.now() }, ...prev]);
+    setHistory(prev => [{ move: { gridIndex, cellIndex }, player: currentPlayer, timestamp: Date.now(), analysis }, ...prev]);
 
     const moveDesc = `${currentPlayer} played in ${getGridName(gridIndex)} grid, ${getGridName(cellIndex)} spot.`;
-    addCommentary(moveDesc);
+    addCommentary(analysis ? `${moveDesc} ${analysis}` : moveDesc);
 
     if (nextState.nextGridIndex === null && !nextState.winner) {
-      addCommentary("Board open: You can play in any grid!");
+      addCommentary("Board open: Play in any available grid.");
     } else if (nextState.gridWins[gridIndex] === currentPlayer) {
-      addCommentary(`${currentPlayer} won the ${getGridName(gridIndex)} grid!`);
+      addCommentary(`Sector Secured: ${currentPlayer} won the ${getGridName(gridIndex)} grid!`);
     }
 
     if (nextState.winner) {
       if (nextState.winner === 'Draw') {
-        addCommentary("Game over: It's a draw.");
+        addCommentary("Conflict Terminated: Tactical Draw.");
       } else {
-        addCommentary(`Game over: ${nextState.winner} wins the big board!`);
+        addCommentary(`Victory Sequence: ${nextState.winner} wins the overall board!`);
         setStats(s => ({ ...s, [nextState.winner as Player]: s[nextState.winner as Player] + 1 }));
       }
     }
@@ -297,6 +309,17 @@ export default function App() {
     setHint(bestMove);
     addCommentary("Hint: Look at the highlighted square.");
   };
+
+  const winProb = useMemo(() => {
+    if (gameState.winner === 'X') return 100;
+    if (gameState.winner === 'O') return 0;
+    if (gameState.winner === 'Draw') return 50;
+    
+    const score = evaluateHeuristic(gameState, 'X');
+    // Map -500 to 500 range roughly to 10% - 90%
+    const prob = 50 + (score / 10);
+    return Math.min(Math.max(Math.round(prob), 5), 95);
+  }, [gameState]);
 
   if (showHome) {
     return (
@@ -447,7 +470,7 @@ export default function App() {
         </div>
       </nav>
 
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-6 items-stretch relative">
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-6 items-center lg:items-stretch justify-center relative">
         <SpaceBackground />
         
         {/* Main Board Container */}
@@ -551,57 +574,79 @@ export default function App() {
           </div>
         </main>
 
-        {/* Right Sidebar: Controls & Commentary (Toggleable) */}
+        {/* Right Sidebar: Tactical Log (Toggleable) */}
         <AnimatePresence>
           {showLog && (
             <motion.aside 
-              initial={{ opacity: 0, width: 0, x: 50 }}
-              animate={{ opacity: 1, width: 256, x: 0 }}
-              exit={{ opacity: 0, width: 0, x: 50 }}
-              className="w-full lg:w-64 flex flex-col gap-6 order-3 overflow-hidden shrink-0"
+              initial={{ opacity: 0, width: 0, x: 20 }}
+              animate={{ opacity: 1, width: 540, x: 0 }}
+              exit={{ opacity: 0, width: 0, x: 20 }}
+              className="w-full lg:w-[540px] flex flex-col order-3 overflow-hidden shrink-0 h-full"
             >
-              <div className="glass p-6 flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold flex items-center gap-2">
-                    Match Controls
+              <div className="glass h-full p-6 flex flex-col">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] uppercase tracking-[0.3em] text-cyan-500 font-black flex items-center gap-2">
+                      <MessageSquare size={14} />
+                      Tactical Analysis
+                    </div>
+                    <div className="text-[9px] text-zinc-500 font-mono">SECTOR_ANALYSIS_V4</div>
                   </div>
-                  <button onClick={() => setShowLog(false)} className="text-zinc-600 hover:text-white">
-                    <CloseIcon size={12} />
+                  <button onClick={() => setShowLog(false)} className="p-1 rounded hover:bg-white/10 text-zinc-600 hover:text-white transition-colors">
+                    <CloseIcon size={14} />
                   </button>
                 </div>
-                <button 
-                  onClick={resetGame}
-                  className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded-lg text-xs tracking-widest transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
-                >
-                  RESTART SESSION
-                </button>
-                <button 
-                  onClick={toggleDifficulty}
-                  className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white py-3 rounded-lg text-xs tracking-widest transition-all uppercase"
-                >
-                  LVL: {difficulty}
-                </button>
-              </div>
 
-              <div className="glass p-6 flex-grow flex flex-col min-h-[300px]">
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center gap-2">
-                  <MessageSquare size={12} />
-                  Tactical Log
+                {/* Win Probability Display at Top */}
+                <div className="mb-8 p-4 rounded-xl bg-white/5 border border-white/10 relative overflow-hidden">
+                  <div className="flex justify-between items-end mb-3">
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Projected Outcome</div>
+                    <div className="text-xl font-black text-white">{winProb}% <span className="text-[10px] text-zinc-500 font-light">PROB</span></div>
+                  </div>
+                  <div className="h-3 bg-zinc-900 rounded-full overflow-hidden flex">
+                    <motion.div 
+                      initial={{ width: '50%' }}
+                      animate={{ width: `${winProb}%` }}
+                      className="h-full bg-gradient-to-r from-pink-500 via-cyan-500 to-cyan-400 relative"
+                    >
+                      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] animate-scan" style={{ width: '40px' } as any} />
+                    </motion.div>
+                  </div>
+                  <div className="flex justify-between mt-2 text-[8px] font-mono uppercase tracking-[0.2em]">
+                    <span className={winProb < 50 ? 'text-pink-500' : 'text-zinc-600'}>O FAVOR</span>
+                    <span className="text-zinc-700">MID_POINT</span>
+                    <span className={winProb > 50 ? 'text-cyan-500' : 'text-zinc-600'}>X FAVOR</span>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3">
+
+                <div className="flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar flex-grow">
                   <AnimatePresence mode="popLayout">
                     {commentary.map((msg, i) => (
                       <motion.div
                         key={msg + (commentary.length - i)}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1 - i * 0.2, y: 0 }}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1 - i * 0.15, x: 0 }}
                         exit={{ opacity: 0 }}
                         className={`
-                          p-3 rounded text-[11px] leading-relaxed
-                          ${i === 0 ? 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-100' : 'bg-white/5 text-zinc-500 border border-transparent'}
+                          p-4 rounded-xl text-[11px] leading-relaxed relative overflow-hidden group
+                          ${i === 0 ? 'bg-cyan-500/10 border border-cyan-500/30 text-white' : 'bg-white/5 text-zinc-400 border border-white/5'}
                         `}
                       >
-                        &ldquo;{msg}&rdquo;
+                        {i === 0 && <div className="absolute left-0 top-0 w-1 h-full bg-cyan-500 shadow-[0_0_10px_#22d3ee]" />}
+                        <div className="font-mono opacity-50 mb-1 flex justify-between">
+                          <span>LOG_ENTRY_{commentary.length - i}</span>
+                          {i === 0 && <span className="animate-pulse text-cyan-400 text-[9px]">ANALYZING...</span>}
+                        </div>
+                        <p className="font-medium">&ldquo;{msg}&rdquo;</p>
+                        
+                        {i === 0 && (
+                          <motion.div 
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ duration: 0.5 }}
+                            className="h-[1px] w-full bg-cyan-500/30 mt-3"
+                          />
+                        )}
                       </motion.div>
                     ))}
                   </AnimatePresence>

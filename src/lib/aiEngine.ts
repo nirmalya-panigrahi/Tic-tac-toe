@@ -7,7 +7,7 @@ const WEIGHT_TWO_IN_A_ROW = 10;
 const WEIGHT_CENTER_CELL = 5;
 const WEIGHT_CENTER_GRID = 20;
 
-function evaluateHeuristic(state: BoardState, aiPlayer: Player): number {
+export function evaluateHeuristic(state: BoardState, aiPlayer: Player): number {
   if (state.winner === aiPlayer) return 10000;
   if (state.winner === (aiPlayer === 'X' ? 'O' : 'X')) return -10000;
   if (state.winner === 'Draw') return 0;
