@@ -578,10 +578,10 @@ export default function App() {
         <AnimatePresence>
           {showLog && (
             <motion.aside 
-              initial={{ opacity: 0, width: 0, x: 20 }}
-              animate={{ opacity: 1, width: 540, x: 0 }}
-              exit={{ opacity: 0, width: 0, x: 20 }}
-              className="w-full lg:w-[540px] flex flex-col order-3 overflow-hidden shrink-0 h-full"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-[540px] flex flex-col order-3 overflow-hidden shrink-0 mx-auto"
             >
               <div className="glass h-full p-6 flex flex-col">
                 <div className="flex items-center justify-between mb-8">
