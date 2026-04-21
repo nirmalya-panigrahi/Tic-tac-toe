@@ -17,6 +17,31 @@ body {
   padding: 0;
   background-color: #050505;
   overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Ensure scrollbar is visible as requested */
+body {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+
+body::-webkit-scrollbar {
+  width: 8px;
+  display: block;
+}
+
+body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+body::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.3);
+  border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.5);
 }
 
 .glass {
@@ -67,5 +92,105 @@ body {
 
 .animate-pulse-cyan {
   animation: pulse-cyan 2s infinite;
+}
+
+/* Space Background Effects */
+.space-container {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: radial-gradient(ellipse at bottom, #111b27 0%, #050505 100%);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.8;
+  box-shadow: 0 0 5px white;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+.shooting-star {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0));
+  opacity: 0;
+  transform: rotate(-45deg);
+}
+
+@keyframes shoot {
+  0% { transform: rotate(-45deg) translate(0, 0); opacity: 0; }
+  1% { opacity: 1; }
+  10% { transform: rotate(-45deg) translate(40vw, 40vh); opacity: 0; }
+  100% { transform: rotate(-45deg) translate(40vw, 40vh); opacity: 0; }
+}
+
+.laser {
+  position: absolute;
+  width: 3px;
+  height: 50px;
+  opacity: 0;
+  border-radius: 2px;
+}
+
+.laser-cyan { 
+  background: #22d3ee; 
+  box-shadow: 0 0 15px #22d3ee, 0 0 5px white; 
+}
+.laser-pink { 
+  background: #f472b6; 
+  box-shadow: 0 0 15px #f472b6, 0 0 5px white; 
+}
+
+@keyframes laser-fire {
+  0% { transform: translate(var(--startX), var(--startY)) rotate(var(--angle)); opacity: 0; }
+  1% { opacity: 1; }
+  20% { transform: translate(var(--endX), var(--endY)) rotate(var(--angle)); opacity: 1; }
+  21% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Subtle Animated Background Orbs (Enhanced) */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1.1); }
+  33% { transform: translate(10vw, 10vh) scale(1.3); }
+  66% { transform: translate(-10vw, 20vh) scale(1); }
+}
+
+.bg-orb-1 {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.6) 0%, transparent 70%);
+  top: -15%;
+  left: -10%;
+  animation: float 25s infinite ease-in-out;
+}
+
+.bg-orb-2 {
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.6) 0%, transparent 70%);
+  bottom: -20%;
+  right: -10%;
+  animation: float 30s infinite ease-in-out reverse;
 }
 
