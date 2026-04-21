@@ -48,16 +48,11 @@ The application can be easily deployed using various platforms:
 - **GitHub Pages** for static deployment.
 - **Heroku** or **Vercel** for complete web applications if backend functionality is included.
 
-## Technical Documentation
-
-Refer to the [Wiki](link-to-wiki) for detailed technical documentation including code comments, architecture diagrams, and specific functionalities of the AI engine. 
-
-For contributions, please adhere to the contribution guidelines to maintain the quality of the project.
-
 ---
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Built with love from Nirmalya and Google AI studio(https://ai.studio/apps/c19fef24-3b23-47b4-a555-65cda0abd03f)
 
 ---
