@@ -53,6 +53,6 @@ The application can be easily deployed using various platforms:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-Built with love from Nirmalya and Google AI studio(https://ai.studio/apps/c19fef24-3b23-47b4-a555-65cda0abd03f)
+Built with love from Nirmalya and [Google AI studio](https://ai.studio/apps/c19fef24-3b23-47b4-a555-65cda0abd03f)
 
 ---
