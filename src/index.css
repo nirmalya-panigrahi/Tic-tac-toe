@@ -69,6 +69,13 @@ body::-webkit-scrollbar-thumb:hover {
   border-radius: 16px;
 }
 
+.glass-light {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+}
+
 .neon-cyan {
   color: #22d3ee;
   text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
@@ -85,8 +92,8 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .grid-dimmed {
-  opacity: 0.4;
-  filter: grayscale(0.5);
+  opacity: 0.6;
+  filter: saturate(0.2);
 }
 
 .winning-overlay {
@@ -97,6 +104,18 @@ body::-webkit-scrollbar-thumb:hover {
   justify-content: center;
   font-weight: 800;
   pointer-events: none;
+  border-radius: 10px;
+}
+
+.winning-overlay-light {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  pointer-events: none;
+  border-radius: 10px;
 }
 
 .grid-line {
@@ -117,8 +136,30 @@ body::-webkit-scrollbar-thumb:hover {
   to { transform: translateX(300%); }
 }
 
-.animate-scan {
-  animation: scan 2s linear infinite;
+@keyframes electric-glow {
+  0%, 100% { text-shadow: 0 0 10px rgba(34, 211, 238, 0.8), 0 0 20px rgba(34, 211, 238, 0.4); color: #fff; }
+  50% { text-shadow: 0 0 20px rgba(34, 211, 238, 1), 0 0 40px rgba(34, 211, 238, 0.6); color: #fff; }
+}
+
+@keyframes blackout {
+  0%, 15%, 45%, 60%, 100% { opacity: 1; }
+  20%, 40%, 80% { opacity: 0; }
+  25%, 35%, 85% { opacity: 0.3; }
+}
+
+.electric-glow {
+  animation: electric-glow 2s infinite alternate;
+}
+
+.blackout-effect {
+  animation: blackout 5s infinite;
+}
+
+.ultimate-tech-text {
+  background: linear-gradient(135deg, #22d3ee 0%, #f472b6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.3));
 }
 
 /* Space Background Effects */
