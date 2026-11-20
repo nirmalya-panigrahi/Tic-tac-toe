@@ -27,3 +27,30 @@ export interface GameHistoryEntry {
   timestamp: number;
   analysis?: string;
 }
+
+export type GameMode = 'solo' | 'multiplayer';
+export type RoomStatus = 'waiting' | 'playing' | 'finished';
+export type RoomWinner = Player | 'DRAW' | null;
+
+export interface RoomPlayer {
+  uid?: string | null;
+  name: string;
+  connected: boolean;
+}
+
+export interface RoomState {
+  roomCode: string;
+  status: RoomStatus;
+  createdAt: number | object | null;
+  currentTurn: Player;
+  nextGridIndex: number | null;
+  grids: CellValue[][];
+  gridWins: RoomWinner[];
+  winner: RoomWinner;
+  players: {
+    X: RoomPlayer;
+    O: RoomPlayer;
+  };
+  logs: string[];
+}
+

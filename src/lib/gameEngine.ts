@@ -35,11 +35,15 @@ export function isValidMove(state: BoardState, move: Move): boolean {
   
   const { gridIndex, cellIndex } = move;
   
-  // Rule: Must play in the nextGridIndex if it's not null
-  if (state.nextGridIndex !== null && gridIndex !== state.nextGridIndex) {
+  // Rule: Must play in the nextGridIndex if it's not null and still open
+  if (
+    state.nextGridIndex !== null &&
+    state.gridWins[state.nextGridIndex] === null &&
+    gridIndex !== state.nextGridIndex
+  ) {
     return false;
   }
-  
+
   // Rule: Cannot play in a grid that is already won or full
   if (state.gridWins[gridIndex] !== null) {
     return false;

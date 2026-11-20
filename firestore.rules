@@ -1,0 +1,188 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidRoomId(id) {
+      return id is string && id.size() == 6 && id.matches('^[A-Z0-9]{6}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidPlayerX(p) {
+      return p is map &&
+        p.keys().hasAll(['uid', 'name', 'connected']) &&
+        p.keys().hasOnly(['uid', 'name', 'connected']) &&
+        p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128 &&
+        p.name is string && p.name.size() >= 1 && p.name.size() <= 20 &&
+        p.connected is bool;
+    }
+
+    function isValidPlayerO(p) {
+      return p is map &&
+        p.keys().hasAll(['uid', 'name', 'connected']) &&
+        p.keys().hasOnly(['uid', 'name', 'connected']) &&
+        (p.uid == null || (p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128)) &&
+        p.name is string && p.name.size() <= 20 &&
+        p.connected is bool;
+    }
+
+    function isValidPlayers(players) {
+      return players is map &&
+        players.keys().hasAll(['X', 'O']) &&
+        players.keys().hasOnly(['X', 'O']) &&
+        isValidPlayerX(players.X) &&
+        isValidPlayerO(players.O);
+    }
+
+    function isValidGrids(grids) {
+      return grids is map &&
+        grids.keys().hasAll(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
+        grids.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
+        grids['0'] is list && grids['0'].size() == 9 &&
+        grids['1'] is list && grids['1'].size() == 9 &&
+        grids['2'] is list && grids['2'].size() == 9 &&
+        grids['3'] is list && grids['3'].size() == 9 &&
+        grids['4'] is list && grids['4'].size() == 9 &&
+        grids['5'] is list && grids['5'].size() == 9 &&
+        grids['6'] is list && grids['6'].size() == 9 &&
+        grids['7'] is list && grids['7'].size() == 9 &&
+        grids['8'] is list && grids['8'].size() == 9;
+    }
+
+    function isValidLogs(logs) {
+      return logs is list &&
+        logs.size() <= 20 &&
+        (logs.size() == 0 || (logs[0] is string && logs[0].size() <= 300));
+    }
+
+    function isValidGameRoom(data) {
+      return data.keys().hasAll([
+          'roomCode', 'status', 'createdAt', 'currentTurn',
+          'nextGridIndex', 'grids', 'gridWins', 'winner', 'players', 'logs'
+        ]) &&
+        data.keys().hasOnly([
+          'roomCode', 'status', 'createdAt', 'currentTurn',
+          'nextGridIndex', 'grids', 'gridWins', 'winner', 'players', 'logs'
+        ]) &&
+        isValidRoomId(data.roomCode) &&
+        data.status in ['waiting', 'playing', 'finished'] &&
+        data.createdAt is timestamp &&
+        data.currentTurn in ['X', 'O'] &&
+        (data.nextGridIndex == null || (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
+        isValidGrids(data.grids) &&
+        data.gridWins is list && data.gridWins.size() == 9 &&
+        (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
+        isValidPlayers(data.players) &&
+        isValidLogs(data.logs);
+    }
+
+    function isParticipant() {
+      return request.auth.uid == existing().players.X.uid ||
+        (existing().players.O.uid != null && request.auth.uid == existing().players.O.uid);
+    }
+
+    function isJoinAction() {
+      return existing().status == 'waiting' &&
+        existing().players.O.uid == null &&
+        incoming().status == 'playing' &&
+        incoming().players.X == existing().players.X &&
+        incoming().players.O.uid == request.auth.uid &&
+        incoming().players.O.name.size() >= 1 &&
+        incoming().players.O.connected == true &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['players', 'status', 'logs']);
+    }
+
+    function isMoveAction() {
+      return isParticipant() &&
+        existing().status == 'playing' &&
+        incoming().status in ['playing', 'finished'] &&
+        incoming().players == existing().players &&
+        (
+          (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid && incoming().currentTurn == 'O') ||
+          (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid && incoming().currentTurn == 'X')
+        ) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'status', 'logs'
+        ]);
+    }
+
+    function isPresenceAction() {
+      return isParticipant() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['players']) &&
+        (
+          (request.auth.uid == existing().players.X.uid &&
+            incoming().players.O == existing().players.O &&
+            incoming().players.X.uid == existing().players.X.uid &&
+            incoming().players.X.name == existing().players.X.name) ||
+          (existing().players.O.uid != null &&
+            request.auth.uid == existing().players.O.uid &&
+            incoming().players.X == existing().players.X &&
+            incoming().players.O.uid == existing().players.O.uid &&
+            incoming().players.O.name == existing().players.O.name)
+        );
+    }
+
+    function isRematchAction() {
+      return isParticipant() &&
+        existing().status == 'finished' &&
+        existing().players.O.uid != null &&
+        incoming().status == 'playing' &&
+        incoming().currentTurn == 'X' &&
+        incoming().nextGridIndex == null &&
+        incoming().winner == null &&
+        incoming().players == existing().players &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'logs'
+        ]);
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isVerifiedUser() && isValidRoomId(roomId);
+      allow list: if false;
+
+      allow create: if isVerifiedUser() &&
+        isValidRoomId(roomId) &&
+        isValidGameRoom(incoming()) &&
+        incoming().roomCode == roomId &&
+        incoming().status == 'waiting' &&
+        incoming().currentTurn == 'X' &&
+        incoming().nextGridIndex == null &&
+        incoming().winner == null &&
+        incoming().createdAt == request.time &&
+        incoming().players.X.uid == request.auth.uid &&
+        incoming().players.O.uid == null;
+
+      allow update: if isVerifiedUser() &&
+        isValidRoomId(roomId) &&
+        isValidGameRoom(incoming()) &&
+        incoming().roomCode == existing().roomCode &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isJoinAction() ||
+          isMoveAction() ||
+          isPresenceAction() ||
+          isRematchAction()
+        );
+
+      allow delete: if false;
+    }
+  }
+}

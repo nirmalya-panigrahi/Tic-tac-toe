@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "GameRoom": {
+      "title": "GameRoom",
+      "description": "Synchronized 2-player Ultimate Tic-Tac-Toe match room state.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 6,
+          "pattern": "^[A-Z0-9]{6}$",
+          "description": "6-character uppercase alphanumeric room identifier."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished"],
+          "description": "Current lifecycle status of the match room."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was created."
+        },
+        "currentTurn": {
+          "type": "string",
+          "enum": ["X", "O"],
+          "description": "Player symbol whose turn is active."
+        },
+        "nextGridIndex": {
+          "type": "number",
+          "description": "Forced sub-grid index (0-8) or null for free play."
+        },
+        "grids": {
+          "type": "object",
+          "description": "Map of 9 sub-grids ('0'..'8'), each containing 9 cell values ('X', 'O', or null)."
+        },
+        "gridWins": {
+          "type": "array",
+          "description": "9 entries tracking the winner ('X', 'O', 'DRAW', or null) of each sub-grid."
+        },
+        "winner": {
+          "type": "string",
+          "enum": ["X", "O", "DRAW"],
+          "description": "Overall match winner or DRAW, null while in progress."
+        },
+        "players": {
+          "type": "object",
+          "description": "Participant metadata for X and O including uid, display name, and connection state."
+        },
+        "logs": {
+          "type": "array",
+          "description": "Recent tactical move log entries for the match."
+        }
+      },
+      "required": [
+        "roomCode",
+        "status",
+        "createdAt",
+        "currentTurn",
+        "nextGridIndex",
+        "grids",
+        "gridWins",
+        "winner",
+        "players",
+        "logs"
+      ]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/GameRoom"
+      },
+      "description": "Real-time multiplayer match rooms keyed by 6-character room code."
+    }
+  }
+}
