@@ -171,16 +171,19 @@ service cloud.firestore {
         (g == 8 || incWins[8] == extWins[8]);
     }
 
+    function gridKey(g) {
+      return ['0', '1', '2', '3', '4', '5', '6', '7', '8'][g];
+    }
+
     function isValidMoveTransition(inc, ext) {
       let g = inc.lastMove.gridIndex;
       let c = inc.lastMove.cellIndex;
-      let gStr = string(g);
+      let gStr = gridKey(g);
       let turn = ext.currentTurn;
       let opp = turn == 'X' ? 'O' : 'X';
       let incGrid = inc.grids[gStr];
       let extGrid = ext.grids[gStr];
-      return inc.lastMove != null &&
-        ext.winner == null &&
+      return ext.winner == null &&
         ext.gridWins[g] == null &&
         (ext.nextGridIndex == null || ext.nextGridIndex == g || ext.gridWins[ext.nextGridIndex] != null) &&
         extGrid[c] == null &&
@@ -221,6 +224,7 @@ service cloud.firestore {
         existing().status == 'playing' &&
         existing().players.O.uid != null &&
         incoming().players == existing().players &&
+        incoming().lastMove != null &&
         (
           (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid) ||
           (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid)
