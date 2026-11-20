@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - run: npm install --legacy-peer-deps
       - run: npx firebase-tools emulators:exec --only firestore "npx vitest run firestore.rules.test.ts"
