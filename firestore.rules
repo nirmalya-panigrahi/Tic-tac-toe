@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global safety net
+    // Default deny for all documents not explicitly allowed below.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -15,7 +15,9 @@ service cloud.firestore {
     }
 
     function isValidRoomId(id) {
-      return id is string && id.size() == 12 && id.matches('^[A-Z0-9]{12}$');
+      return id is string &&
+        id.size() == 12 &&
+        id.matches('^[A-Z0-9]{12}$');
     }
 
     function incoming() {
@@ -30,8 +32,12 @@ service cloud.firestore {
       return p is map &&
         p.size() == 3 &&
         p.keys().hasOnly(['uid', 'name', 'connected']) &&
-        p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128 &&
-        p.name is string && p.name.size() >= 1 && p.name.size() <= 20 &&
+        p.uid is string &&
+        p.uid.size() >= 1 &&
+        p.uid.size() <= 128 &&
+        p.name is string &&
+        p.name.size() >= 1 &&
+        p.name.size() <= 20 &&
         p.connected is bool;
     }
 
@@ -40,7 +46,8 @@ service cloud.firestore {
         p.size() == 3 &&
         p.keys().hasOnly(['uid', 'name', 'connected']) &&
         (p.uid == null || (p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128)) &&
-        p.name is string && p.name.size() <= 20 &&
+        p.name is string &&
+        p.name.size() <= 20 &&
         p.connected is bool;
     }
 
@@ -89,8 +96,12 @@ service cloud.firestore {
         m is map &&
         m.size() == 2 &&
         m.keys().hasOnly(['gridIndex', 'cellIndex']) &&
-        m.gridIndex is int && m.gridIndex >= 0 && m.gridIndex <= 8 &&
-        m.cellIndex is int && m.cellIndex >= 0 && m.cellIndex <= 8
+        m.gridIndex is int &&
+        m.gridIndex >= 0 &&
+        m.gridIndex <= 8 &&
+        m.cellIndex is int &&
+        m.cellIndex >= 0 &&
+        m.cellIndex <= 8
       );
     }
 
@@ -103,23 +114,43 @@ service cloud.firestore {
     function isValidGameRoom(data) {
       return data.keys().hasAll([
           'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
+          'nextGridIndex', 'grids', 'gridWins', 'winner',
+          'lastMove', 'players', 'logs'
         ]) &&
         data.keys().hasOnly([
           'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
+          'nextGridIndex', 'grids', 'gridWins', 'winner',
+          'lastMove', 'players', 'logs'
         ]) &&
         isValidRoomId(data.roomCode) &&
         data.status in ['waiting', 'playing', 'finished'] &&
         data.createdAt is timestamp &&
         data.currentTurn in ['X', 'O'] &&
-        (data.nextGridIndex == null || (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
+        (data.nextGridIndex == null ||
+          (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
         isValidGrids(data.grids) &&
-        data.gridWins is list && data.gridWins.size() == 9 && data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
+        data.gridWins is list &&
+        data.gridWins.size() == 9 &&
+        data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
         (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
         isValidLastMove(data.lastMove) &&
         isValidPlayers(data.players) &&
         isValidLogs(data.logs);
+    }
+
+    // Updates need only verify the room's top-level field set here.
+    // Each permitted action validates the fields it changes.
+    function hasValidRoomKeys(data) {
+      return data.keys().hasAll([
+          'roomCode', 'status', 'createdAt', 'currentTurn',
+          'nextGridIndex', 'grids', 'gridWins', 'winner',
+          'lastMove', 'players', 'logs'
+        ]) &&
+        data.keys().hasOnly([
+          'roomCode', 'status', 'createdAt', 'currentTurn',
+          'nextGridIndex', 'grids', 'gridWins', 'winner',
+          'lastMove', 'players', 'logs'
+        ]);
     }
 
     function hasWon(b, p) {
@@ -181,6 +212,24 @@ service cloud.firestore {
         : (g < 6 ? (g == 4 ? grids['4'] : grids['5']) : (g == 6 ? grids['6'] : (g == 7 ? grids['7'] : grids['8'])));
     }
 
+    function isValidMovePayload(data) {
+      return data.status in ['playing', 'finished'] &&
+        data.currentTurn in ['X', 'O'] &&
+        (data.nextGridIndex == null ||
+          (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
+        data.lastMove != null &&
+        isValidLastMove(data.lastMove) &&
+        data.grids is map &&
+        data.grids.size() == 9 &&
+        data.grids.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
+        isValidGridShape(gridAt(data.grids, data.lastMove.gridIndex)) &&
+        data.gridWins is list &&
+        data.gridWins.size() == 9 &&
+        data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
+        (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
+        isValidLogs(data.logs);
+    }
+
     function isValidSubGridOutcome(incGrid, gWin, turn) {
       return gWin == null
         ? (!hasWon(incGrid, turn) && hasEmpty(incGrid))
@@ -196,13 +245,16 @@ service cloud.firestore {
             ? (inc.status == 'finished' && hasWon(inc.gridWins, turn))
             : (inc.winner == 'DRAW'
                 ? (inc.status == 'finished' && !hasWon(inc.gridWins, turn) && !hasEmpty(inc.gridWins))
-                : (inc.winner == null && inc.status == 'playing' && !hasWon(inc.gridWins, turn) && hasEmpty(inc.gridWins))));
+                : (inc.winner == null && inc.status == 'playing' &&
+                  !hasWon(inc.gridWins, turn) && hasEmpty(inc.gridWins))));
     }
 
     function verifyMoveState(inc, ext, g, c, incGrid, extGrid) {
       return ext.winner == null &&
         ext.gridWins[g] == null &&
-        (ext.nextGridIndex == null || ext.nextGridIndex == g || (ext.nextGridIndex is int && ext.gridWins[ext.nextGridIndex] != null)) &&
+        (ext.nextGridIndex == null ||
+          ext.nextGridIndex == g ||
+          (ext.nextGridIndex is int && ext.gridWins[ext.nextGridIndex] != null)) &&
         extGrid[c] == null &&
         incGrid[c] == ext.currentTurn &&
         otherGridsUnchanged(inc.grids, ext.grids, g) &&
@@ -238,19 +290,22 @@ service cloud.firestore {
         incoming().players.O.uid == request.auth.uid &&
         incoming().players.O.name.size() >= 1 &&
         incoming().players.O.connected == true &&
+        isValidPlayers(incoming().players) &&
+        isValidLogs(incoming().logs) &&
         incoming().diff(existing()).affectedKeys().hasOnly(['players', 'status', 'logs']);
     }
 
     function isMoveAction() {
       return existing().status == 'playing' &&
         existing().players.O.uid != null &&
-        incoming().lastMove != null &&
+        isValidMovePayload(incoming()) &&
         (
           (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid) ||
           (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid)
         ) &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'status', 'lastMove', 'logs'
+          'currentTurn', 'nextGridIndex', 'grids', 'gridWins',
+          'winner', 'status', 'lastMove', 'logs'
         ]) &&
         isValidMoveTransition(incoming(), existing());
     }
@@ -258,6 +313,7 @@ service cloud.firestore {
     function isPresenceAction() {
       return isParticipant() &&
         incoming().diff(existing()).affectedKeys().hasOnly(['players']) &&
+        isValidPlayers(incoming().players) &&
         (
           (request.auth.uid == existing().players.X.uid &&
             incoming().players.O == existing().players.O &&
@@ -280,10 +336,16 @@ service cloud.firestore {
         incoming().nextGridIndex == null &&
         incoming().winner == null &&
         incoming().lastMove == null &&
+        isValidGrids(incoming().grids) &&
+        incoming().gridWins is list &&
+        incoming().gridWins.size() == 9 &&
+        incoming().gridWins.hasOnly([null]) &&
         isEmptyBoard(incoming().grids, incoming().gridWins) &&
+        isValidLogs(incoming().logs) &&
         incoming().players == existing().players &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'status', 'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'logs'
+          'status', 'currentTurn', 'nextGridIndex', 'grids',
+          'gridWins', 'winner', 'lastMove', 'logs'
         ]);
     }
 
@@ -307,7 +369,7 @@ service cloud.firestore {
 
       allow update: if isVerifiedUser() &&
         isValidRoomId(roomId) &&
-        isValidGameRoom(incoming()) &&
+        hasValidRoomKeys(incoming()) &&
         incoming().roomCode == existing().roomCode &&
         incoming().createdAt == existing().createdAt &&
         (
