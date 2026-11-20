@@ -1,59 +1,42 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny for all documents not explicitly allowed below.
+
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
+    // ---------- basics ----------
     function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     function isValidRoomId(id) {
-      return id is string &&
-        id.size() == 12 &&
-        id.matches('^[A-Z0-9]{12}$');
+      return id is string && id.size() == 12 && id.matches('^[A-Z0-9]{12}$');
     }
 
-    function incoming() {
-      return request.resource.data;
-    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
 
-    function existing() {
-      return resource.data;
-    }
-
+    // ---------- shape validators ----------
     function isValidPlayerX(p) {
-      return p is map &&
-        p.size() == 3 &&
+      return p is map && p.size() == 3 &&
         p.keys().hasOnly(['uid', 'name', 'connected']) &&
-        p.uid is string &&
-        p.uid.size() >= 1 &&
-        p.uid.size() <= 128 &&
-        p.name is string &&
-        p.name.size() >= 1 &&
-        p.name.size() <= 20 &&
+        p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128 &&
+        p.name is string && p.name.size() >= 1 && p.name.size() <= 20 &&
         p.connected is bool;
     }
 
     function isValidPlayerO(p) {
-      return p is map &&
-        p.size() == 3 &&
+      return p is map && p.size() == 3 &&
         p.keys().hasOnly(['uid', 'name', 'connected']) &&
         (p.uid == null || (p.uid is string && p.uid.size() >= 1 && p.uid.size() <= 128)) &&
-        p.name is string &&
-        p.name.size() <= 20 &&
+        p.name is string && p.name.size() <= 20 &&
         p.connected is bool;
     }
 
     function isValidPlayers(players) {
-      return players is map &&
-        players.size() == 2 &&
+      return players is map && players.size() == 2 &&
         players.keys().hasOnly(['X', 'O']) &&
         isValidPlayerX(players.X) &&
         isValidPlayerO(players.O);
@@ -64,63 +47,46 @@ service cloud.firestore {
     }
 
     function isValidGrids(grids) {
-      return grids is map &&
-        grids.size() == 9 &&
-        grids.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
-        isValidGridShape(grids['0']) &&
-        isValidGridShape(grids['1']) &&
-        isValidGridShape(grids['2']) &&
-        isValidGridShape(grids['3']) &&
-        isValidGridShape(grids['4']) &&
-        isValidGridShape(grids['5']) &&
-        isValidGridShape(grids['6']) &&
-        isValidGridShape(grids['7']) &&
+      return grids is map && grids.size() == 9 &&
+        grids.keys().hasOnly(['0','1','2','3','4','5','6','7','8']) &&
+        isValidGridShape(grids['0']) && isValidGridShape(grids['1']) &&
+        isValidGridShape(grids['2']) && isValidGridShape(grids['3']) &&
+        isValidGridShape(grids['4']) && isValidGridShape(grids['5']) &&
+        isValidGridShape(grids['6']) && isValidGridShape(grids['7']) &&
         isValidGridShape(grids['8']);
     }
 
     function isEmptyBoard(grids, gridWins) {
-      return grids['0'].hasOnly([null]) &&
-        grids['1'].hasOnly([null]) &&
-        grids['2'].hasOnly([null]) &&
-        grids['3'].hasOnly([null]) &&
-        grids['4'].hasOnly([null]) &&
-        grids['5'].hasOnly([null]) &&
-        grids['6'].hasOnly([null]) &&
-        grids['7'].hasOnly([null]) &&
-        grids['8'].hasOnly([null]) &&
-        gridWins.hasOnly([null]);
+      return grids['0'].hasOnly([null]) && grids['1'].hasOnly([null]) &&
+        grids['2'].hasOnly([null]) && grids['3'].hasOnly([null]) &&
+        grids['4'].hasOnly([null]) && grids['5'].hasOnly([null]) &&
+        grids['6'].hasOnly([null]) && grids['7'].hasOnly([null]) &&
+        grids['8'].hasOnly([null]) && gridWins.hasOnly([null]);
     }
 
     function isValidLastMove(m) {
       return m == null || (
-        m is map &&
-        m.size() == 2 &&
+        m is map && m.size() == 2 &&
         m.keys().hasOnly(['gridIndex', 'cellIndex']) &&
-        m.gridIndex is int &&
-        m.gridIndex >= 0 &&
-        m.gridIndex <= 8 &&
-        m.cellIndex is int &&
-        m.cellIndex >= 0 &&
-        m.cellIndex <= 8
+        m.gridIndex is int && m.gridIndex >= 0 && m.gridIndex <= 8 &&
+        m.cellIndex is int && m.cellIndex >= 0 && m.cellIndex <= 8
       );
     }
 
     function isValidLogs(logs) {
-      return logs is list &&
-        logs.size() <= 20 &&
+      return logs is list && logs.size() <= 20 &&
         (logs.size() == 0 || (logs[0] is string && logs[0].size() <= 300));
     }
 
+    // Full validation: used on CREATE only.
     function isValidGameRoom(data) {
       return data.keys().hasAll([
-          'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner',
-          'lastMove', 'players', 'logs'
+          'roomCode', 'status', 'createdAt', 'currentTurn', 'nextGridIndex',
+          'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
         ]) &&
         data.keys().hasOnly([
-          'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner',
-          'lastMove', 'players', 'logs'
+          'roomCode', 'status', 'createdAt', 'currentTurn', 'nextGridIndex',
+          'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
         ]) &&
         isValidRoomId(data.roomCode) &&
         data.status in ['waiting', 'playing', 'finished'] &&
@@ -129,8 +95,7 @@ service cloud.firestore {
         (data.nextGridIndex == null ||
           (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
         isValidGrids(data.grids) &&
-        data.gridWins is list &&
-        data.gridWins.size() == 9 &&
+        data.gridWins is list && data.gridWins.size() == 9 &&
         data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
         (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
         isValidLastMove(data.lastMove) &&
@@ -138,21 +103,7 @@ service cloud.firestore {
         isValidLogs(data.logs);
     }
 
-    // Updates need only verify the room's top-level field set here.
-    // Each permitted action validates the fields it changes.
-    function hasValidRoomKeys(data) {
-      return data.keys().hasAll([
-          'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner',
-          'lastMove', 'players', 'logs'
-        ]) &&
-        data.keys().hasOnly([
-          'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner',
-          'lastMove', 'players', 'logs'
-        ]);
-    }
-
+    // ---------- game logic ----------
     function hasWon(b, p) {
       return (b[4] == p && (
           (b[0] == p && b[8] == p) ||
@@ -170,185 +121,138 @@ service cloud.firestore {
         b[6] == null || b[7] == null || b[8] == null;
     }
 
-    function otherGridsUnchanged(incGrids, extGrids, g) {
-      return (g == 0 || incGrids['0'] == extGrids['0']) &&
-        (g == 1 || incGrids['1'] == extGrids['1']) &&
-        (g == 2 || incGrids['2'] == extGrids['2']) &&
-        (g == 3 || incGrids['3'] == extGrids['3']) &&
-        (g == 4 || incGrids['4'] == extGrids['4']) &&
-        (g == 5 || incGrids['5'] == extGrids['5']) &&
-        (g == 6 || incGrids['6'] == extGrids['6']) &&
-        (g == 7 || incGrids['7'] == extGrids['7']) &&
-        (g == 8 || incGrids['8'] == extGrids['8']);
-    }
-
-    function otherCellsUnchanged(incGrid, extGrid, c) {
-      return (c == 0 || incGrid[0] == extGrid[0]) &&
-        (c == 1 || incGrid[1] == extGrid[1]) &&
-        (c == 2 || incGrid[2] == extGrid[2]) &&
-        (c == 3 || incGrid[3] == extGrid[3]) &&
-        (c == 4 || incGrid[4] == extGrid[4]) &&
-        (c == 5 || incGrid[5] == extGrid[5]) &&
-        (c == 6 || incGrid[6] == extGrid[6]) &&
-        (c == 7 || incGrid[7] == extGrid[7]) &&
-        (c == 8 || incGrid[8] == extGrid[8]);
-    }
-
-    function otherGridWinsUnchanged(incWins, extWins, g) {
-      return (g == 0 || incWins[0] == extWins[0]) &&
-        (g == 1 || incWins[1] == extWins[1]) &&
-        (g == 2 || incWins[2] == extWins[2]) &&
-        (g == 3 || incWins[3] == extWins[3]) &&
-        (g == 4 || incWins[4] == extWins[4]) &&
-        (g == 5 || incWins[5] == extWins[5]) &&
-        (g == 6 || incWins[6] == extWins[6]) &&
-        (g == 7 || incWins[7] == extWins[7]) &&
-        (g == 8 || incWins[8] == extWins[8]);
-    }
-
-    function gridAt(grids, g) {
-      return g < 4
-        ? (g < 2 ? (g == 0 ? grids['0'] : grids['1']) : (g == 2 ? grids['2'] : grids['3']))
-        : (g < 6 ? (g == 4 ? grids['4'] : grids['5']) : (g == 6 ? grids['6'] : (g == 7 ? grids['7'] : grids['8'])));
-    }
-
-    function isValidMovePayload(data) {
-      return data.status in ['playing', 'finished'] &&
-        data.currentTurn in ['X', 'O'] &&
-        (data.nextGridIndex == null ||
-          (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
-        data.lastMove != null &&
-        isValidLastMove(data.lastMove) &&
-        data.grids is map &&
-        data.grids.size() == 9 &&
-        data.grids.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
-        isValidGridShape(gridAt(data.grids, data.lastMove.gridIndex)) &&
-        data.gridWins is list &&
-        data.gridWins.size() == 9 &&
-        data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
-        (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
-        isValidLogs(data.logs);
-    }
-
-    function isValidSubGridOutcome(incGrid, gWin, turn) {
-      return gWin == null
-        ? (!hasWon(incGrid, turn) && hasEmpty(incGrid))
-        : (gWin == turn
-            ? hasWon(incGrid, turn)
-            : (gWin == 'DRAW' && !hasWon(incGrid, turn) && !hasEmpty(incGrid)));
-    }
-
-    function isValidGlobalOutcome(inc, gWin, turn) {
-      return gWin == null
-        ? (inc.winner == null && inc.status == 'playing')
-        : (inc.winner == turn
-            ? (inc.status == 'finished' && hasWon(inc.gridWins, turn))
-            : (inc.winner == 'DRAW'
-                ? (inc.status == 'finished' && !hasWon(inc.gridWins, turn) && !hasEmpty(inc.gridWins))
-                : (inc.winner == null && inc.status == 'playing' &&
-                  !hasWon(inc.gridWins, turn) && hasEmpty(inc.gridWins))));
-    }
-
-    function verifyMoveState(inc, ext, g, c, incGrid, extGrid) {
-      return ext.winner == null &&
-        ext.gridWins[g] == null &&
-        (ext.nextGridIndex == null ||
-          ext.nextGridIndex == g ||
-          (ext.nextGridIndex is int && ext.gridWins[ext.nextGridIndex] != null)) &&
-        extGrid[c] == null &&
-        incGrid[c] == ext.currentTurn &&
-        otherGridsUnchanged(inc.grids, ext.grids, g) &&
-        otherCellsUnchanged(incGrid, extGrid, c) &&
-        otherGridWinsUnchanged(inc.gridWins, ext.gridWins, g) &&
-        isValidSubGridOutcome(incGrid, inc.gridWins[g], ext.currentTurn) &&
-        isValidGlobalOutcome(inc, inc.gridWins[g], ext.currentTurn) &&
-        (inc.gridWins[c] != null ? inc.nextGridIndex == null : inc.nextGridIndex == c) &&
-        inc.currentTurn == (ext.currentTurn == 'X' ? 'O' : 'X');
+    // Two 9-element lists are identical except possibly at index i.
+    function sameExcept(a, b, i) {
+      return (i == 0 || a[0] == b[0]) && (i == 1 || a[1] == b[1]) &&
+        (i == 2 || a[2] == b[2]) && (i == 3 || a[3] == b[3]) &&
+        (i == 4 || a[4] == b[4]) && (i == 5 || a[5] == b[5]) &&
+        (i == 6 || a[6] == b[6]) && (i == 7 || a[7] == b[7]) &&
+        (i == 8 || a[8] == b[8]);
     }
 
     function isValidMoveTransition(inc, ext) {
-      return verifyMoveState(
-        inc,
-        ext,
-        inc.lastMove.gridIndex,
-        inc.lastMove.cellIndex,
-        gridAt(inc.grids, inc.lastMove.gridIndex),
-        gridAt(ext.grids, inc.lastMove.gridIndex)
-      );
+      let g = inc.lastMove.gridIndex;
+      let c = inc.lastMove.cellIndex;
+      let k = string(g);
+      let turn = ext.currentTurn;
+      let incGrid = inc.grids[k];
+      let extGrid = ext.grids[k];
+      let gWin = inc.gridWins[g];
+      let subWon = hasWon(incGrid, turn);
+      let globalWon = hasWon(inc.gridWins, turn);
+
+      return
+        // the move is legal in the existing state
+        ext.winner == null &&
+        ext.gridWins[g] == null &&
+        (ext.nextGridIndex == null || ext.nextGridIndex == g ||
+          ext.gridWins[ext.nextGridIndex] != null) &&
+        extGrid[c] == null &&
+        // exactly one cell in one grid changed, to the mover's mark
+        isValidGridShape(incGrid) &&
+        incGrid[c] == turn &&
+        inc.grids.diff(ext.grids).affectedKeys().hasOnly([k]) &&
+        sameExcept(incGrid, extGrid, c) &&
+        // gridWins: same size, only index g may change
+        inc.gridWins.size() == 9 &&
+        sameExcept(inc.gridWins, ext.gridWins, g) &&
+        // sub-grid result
+        (gWin == null
+          ? (!subWon && hasEmpty(incGrid))
+          : (gWin == turn
+              ? subWon
+              : (gWin == 'DRAW' && !subWon && !hasEmpty(incGrid)))) &&
+        // overall result
+        (gWin == null
+          ? (inc.winner == null && inc.status == 'playing')
+          : (inc.winner == turn
+              ? (inc.status == 'finished' && globalWon)
+              : (inc.winner == 'DRAW'
+                  ? (inc.status == 'finished' && !globalWon && !hasEmpty(inc.gridWins))
+                  : (inc.winner == null && inc.status == 'playing' &&
+                     !globalWon && hasEmpty(inc.gridWins))))) &&
+        // next forced grid, and turn flips
+        (inc.gridWins[c] != null ? inc.nextGridIndex == null : inc.nextGridIndex == c) &&
+        inc.currentTurn == (turn == 'X' ? 'O' : 'X');
     }
 
-    function isParticipant() {
-      return request.auth.uid == existing().players.X.uid ||
-        (existing().players.O.uid != null && request.auth.uid == existing().players.O.uid);
-    }
-
+    // ---------- actions ----------
     function isJoinAction() {
-      return existing().status == 'waiting' &&
-        existing().players.O.uid == null &&
-        incoming().status == 'playing' &&
-        incoming().players.X == existing().players.X &&
-        incoming().players.O.uid == request.auth.uid &&
-        incoming().players.O.name.size() >= 1 &&
-        incoming().players.O.connected == true &&
-        isValidPlayers(incoming().players) &&
-        isValidLogs(incoming().logs) &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['players', 'status', 'logs']);
+      let ext = existing();
+      let inc = incoming();
+      return ext.status == 'waiting' &&
+        ext.players.O.uid == null &&
+        inc.diff(ext).affectedKeys().hasOnly(['players', 'status', 'logs']) &&
+        inc.status == 'playing' &&
+        inc.players.size() == 2 &&
+        inc.players.X == ext.players.X &&
+        isValidPlayerO(inc.players.O) &&
+        inc.players.O.uid == request.auth.uid &&
+        inc.players.O.name.size() >= 1 &&
+        inc.players.O.connected == true &&
+        isValidLogs(inc.logs);
     }
 
     function isMoveAction() {
-      return existing().status == 'playing' &&
-        existing().players.O.uid != null &&
-        isValidMovePayload(incoming()) &&
-        (
-          (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid) ||
-          (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid)
-        ) &&
-        incoming().diff(existing()).affectedKeys().hasOnly([
+      let ext = existing();
+      let inc = incoming();
+      return ext.status == 'playing' &&
+        ext.players.O.uid != null &&
+        request.auth.uid ==
+          (ext.currentTurn == 'X' ? ext.players.X.uid : ext.players.O.uid) &&
+        inc.diff(ext).affectedKeys().hasOnly([
           'currentTurn', 'nextGridIndex', 'grids', 'gridWins',
           'winner', 'status', 'lastMove', 'logs'
         ]) &&
-        isValidMoveTransition(incoming(), existing());
+        inc.lastMove != null &&
+        isValidLastMove(inc.lastMove) &&
+        isValidLogs(inc.logs) &&
+        isValidMoveTransition(inc, ext);
     }
 
     function isPresenceAction() {
-      return isParticipant() &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['players']) &&
-        isValidPlayers(incoming().players) &&
+      let ext = existing();
+      let inc = incoming();
+      let uid = request.auth.uid;
+      return inc.diff(ext).affectedKeys().hasOnly(['players']) &&
+        inc.players.size() == 2 &&
         (
-          (request.auth.uid == existing().players.X.uid &&
-            incoming().players.O == existing().players.O &&
-            incoming().players.X.uid == existing().players.X.uid &&
-            incoming().players.X.name == existing().players.X.name) ||
-          (existing().players.O.uid != null &&
-            request.auth.uid == existing().players.O.uid &&
-            incoming().players.X == existing().players.X &&
-            incoming().players.O.uid == existing().players.O.uid &&
-            incoming().players.O.name == existing().players.O.name)
+          (uid == ext.players.X.uid &&
+            inc.players.O == ext.players.O &&
+            isValidPlayerX(inc.players.X) &&
+            inc.players.X.uid == ext.players.X.uid &&
+            inc.players.X.name == ext.players.X.name) ||
+          (ext.players.O.uid != null && uid == ext.players.O.uid &&
+            inc.players.X == ext.players.X &&
+            isValidPlayerO(inc.players.O) &&
+            inc.players.O.uid == ext.players.O.uid &&
+            inc.players.O.name == ext.players.O.name)
         );
     }
 
     function isRematchAction() {
-      return isParticipant() &&
-        existing().status == 'finished' &&
-        existing().players.O.uid != null &&
-        incoming().status == 'playing' &&
-        incoming().currentTurn == 'X' &&
-        incoming().nextGridIndex == null &&
-        incoming().winner == null &&
-        incoming().lastMove == null &&
-        isValidGrids(incoming().grids) &&
-        incoming().gridWins is list &&
-        incoming().gridWins.size() == 9 &&
-        incoming().gridWins.hasOnly([null]) &&
-        isEmptyBoard(incoming().grids, incoming().gridWins) &&
-        isValidLogs(incoming().logs) &&
-        incoming().players == existing().players &&
-        incoming().diff(existing()).affectedKeys().hasOnly([
+      let ext = existing();
+      let inc = incoming();
+      let uid = request.auth.uid;
+      return ext.status == 'finished' &&
+        ext.players.O.uid != null &&
+        (uid == ext.players.X.uid || uid == ext.players.O.uid) &&
+        inc.diff(ext).affectedKeys().hasOnly([
           'status', 'currentTurn', 'nextGridIndex', 'grids',
           'gridWins', 'winner', 'lastMove', 'logs'
-        ]);
+        ]) &&
+        inc.status == 'playing' &&
+        inc.currentTurn == 'X' &&
+        inc.nextGridIndex == null &&
+        inc.winner == null &&
+        inc.lastMove == null &&
+        isValidGrids(inc.grids) &&
+        inc.gridWins is list && inc.gridWins.size() == 9 &&
+        isEmptyBoard(inc.grids, inc.gridWins) &&
+        isValidLogs(inc.logs);
     }
 
+    // ---------- rooms ----------
     match /rooms/{roomId} {
       allow get: if isVerifiedUser() && isValidRoomId(roomId);
       allow list: if false;
@@ -369,15 +273,7 @@ service cloud.firestore {
 
       allow update: if isVerifiedUser() &&
         isValidRoomId(roomId) &&
-        hasValidRoomKeys(incoming()) &&
-        incoming().roomCode == existing().roomCode &&
-        incoming().createdAt == existing().createdAt &&
-        (
-          isJoinAction() ||
-          isMoveAction() ||
-          isPresenceAction() ||
-          isRematchAction()
-        );
+        (isJoinAction() || isMoveAction() || isPresenceAction() || isRematchAction());
 
       allow delete: if false;
     }
