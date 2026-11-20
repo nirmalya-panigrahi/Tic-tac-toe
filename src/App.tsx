@@ -42,7 +42,6 @@ import { getBestMove, evaluateHeuristic } from './lib/aiEngine';
 import {
   auth,
   googleProvider,
-  transport,
   isFirebaseConfigured,
   missingFirebaseEnvVars,
   firebaseInitError,
@@ -52,6 +51,7 @@ import {
   User,
 } from './firebase';
 import {
+  ROOM_CODE_LENGTH,
   generateRoomCode,
   getGridName,
   roomToBoardState,
@@ -361,7 +361,7 @@ export default function App() {
 
   // Online Multiplayer & Auth State
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(transport !== 'firestore');
+  const [authReady, setAuthReady] = useState(!auth);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
   const [localRole, setLocalRole] = useState<Player | null>(null);
@@ -517,7 +517,7 @@ export default function App() {
     if (!isFirebaseConfigured || !activeRoomCode || !localRole) {
       return;
     }
-    if (transport === 'firestore' && (!authReady || !authUser)) {
+    if (!authReady || !authUser) {
       return;
     }
 
@@ -570,15 +570,15 @@ export default function App() {
     return trimmed || 'PILOT';
   }, [playerName]);
 
-  const requiresAuth = transport === 'firestore';
-  const canUseMultiplayer = isFirebaseConfigured && (!requiresAuth || Boolean(authUser));
+  const requiresAuth = true;
+  const canUseMultiplayer = isFirebaseConfigured && Boolean(authUser);
 
   const handleCreateRoom = async () => {
     if (!isFirebaseConfigured) {
       setMultiplayerError('Firebase configuration is missing.');
       return;
     }
-    if (requiresAuth && !authUser) {
+    if (!authUser) {
       setMultiplayerError('Please sign in with Google to create a room.');
       return;
     }
@@ -631,8 +631,8 @@ export default function App() {
     }
 
     const code = joinCodeInput.trim().toUpperCase();
-    if (code.length !== 6) {
-      setMultiplayerError('Enter a valid 6-character room code.');
+    if (code.length !== ROOM_CODE_LENGTH) {
+      setMultiplayerError(`Enter a valid ${ROOM_CODE_LENGTH}-character room code.`);
       return;
     }
 
@@ -643,7 +643,7 @@ export default function App() {
       const existingRoom = await fetchRoom(code);
 
       if (!existingRoom) {
-        setMultiplayerError(`Room "${code}" was not found. Verify the 6-character code.`);
+        setMultiplayerError(`Room "${code}" was not found. Verify the ${ROOM_CODE_LENGTH}-character code.`);
         return;
       }
 
@@ -723,6 +723,7 @@ export default function App() {
           grids: nextState.grids,
           gridWins: nextState.gridWins.map(toRoomWinner),
           winner: toRoomWinner(nextState.winner),
+          lastMove: { gridIndex, cellIndex },
           status: nextState.winner ? 'finished' : 'playing',
           logs: updatedLogs,
         });
@@ -747,6 +748,7 @@ export default function App() {
         grids: initialBoard.grids,
         gridWins: initialBoard.gridWins.map(toRoomWinner),
         winner: null,
+        lastMove: null,
         logs: [
           `Rematch initialized. ${starterName} [X] to move.`,
           ...roomState.logs.slice(0, 10),
@@ -1185,7 +1187,7 @@ export default function App() {
                 >
                   <div className="flex items-center gap-2 font-bold uppercase tracking-wider mb-1.5">
                     <AlertTriangle size={15} className="text-amber-500 shrink-0" />
-                    <span>Firebase Realtime Database Not Configured</span>
+                    <span>Firebase Firestore Not Configured</span>
                   </div>
                   <p className="opacity-90 mb-2">
                     {firebaseInitError
@@ -1275,7 +1277,7 @@ export default function App() {
                       Host Match [X]
                     </div>
                     <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-                      Generate a 6-character room code and invite a challenger.
+                      Generate a {ROOM_CODE_LENGTH}-character room code and invite a challenger.
                     </p>
                   </div>
                   <button
@@ -1310,7 +1312,10 @@ export default function App() {
                       value={joinCodeInput}
                       onChange={(e) =>
                         setJoinCodeInput(
-                          e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+                          e.target.value
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9]/g, '')
+                            .slice(0, ROOM_CODE_LENGTH)
                         )
                       }
                       onKeyDown={(e) => {
@@ -1318,9 +1323,9 @@ export default function App() {
                           void handleJoinRoom();
                         }
                       }}
-                      placeholder="ROOM CODE (E.G. GRID8X)"
+                      placeholder={`ROOM CODE (${ROOM_CODE_LENGTH} CHARS)`}
                       disabled={!canUseMultiplayer || isRoomBusy}
-                      className={`w-full mt-1 border rounded-lg px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-pink-500 uppercase tracking-[0.2em] ${
+                      className={`w-full mt-1 border rounded-lg px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-pink-500 uppercase tracking-[0.15em] ${
                         isDark
                           ? 'bg-black/40 border-white/10 text-white placeholder:text-zinc-600'
                           : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400'
@@ -1329,10 +1334,16 @@ export default function App() {
                   </div>
                   <button
                     type="button"
-                    disabled={!canUseMultiplayer || isRoomBusy || joinCodeInput.trim().length !== 6}
+                    disabled={
+                      !canUseMultiplayer ||
+                      isRoomBusy ||
+                      joinCodeInput.trim().length !== ROOM_CODE_LENGTH
+                    }
                     onClick={handleJoinRoom}
                     className={`w-full flex items-center justify-center gap-2 font-black px-5 py-3.5 rounded-xl text-xs uppercase tracking-[0.15em] transition-all ${
-                      !canUseMultiplayer || isRoomBusy || joinCodeInput.trim().length !== 6
+                      !canUseMultiplayer ||
+                      isRoomBusy ||
+                      joinCodeInput.trim().length !== ROOM_CODE_LENGTH
                         ? 'opacity-40 cursor-not-allowed bg-zinc-700 text-zinc-300'
                         : 'bg-pink-500 text-white hover:bg-pink-400 active:scale-[0.98]'
                     }`}

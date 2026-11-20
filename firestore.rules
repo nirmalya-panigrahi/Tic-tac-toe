@@ -15,7 +15,7 @@ service cloud.firestore {
     }
 
     function isValidRoomId(id) {
-      return id is string && id.size() == 6 && id.matches('^[A-Z0-9]{6}$');
+      return id is string && id.size() == 12 && id.matches('^[A-Z0-9]{12}$');
     }
 
     function incoming() {
@@ -56,15 +56,38 @@ service cloud.firestore {
       return grids is map &&
         grids.keys().hasAll(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
         grids.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6', '7', '8']) &&
-        grids['0'] is list && grids['0'].size() == 9 &&
-        grids['1'] is list && grids['1'].size() == 9 &&
-        grids['2'] is list && grids['2'].size() == 9 &&
-        grids['3'] is list && grids['3'].size() == 9 &&
-        grids['4'] is list && grids['4'].size() == 9 &&
-        grids['5'] is list && grids['5'].size() == 9 &&
-        grids['6'] is list && grids['6'].size() == 9 &&
-        grids['7'] is list && grids['7'].size() == 9 &&
-        grids['8'] is list && grids['8'].size() == 9;
+        grids['0'] is list && grids['0'].size() == 9 && grids['0'].hasOnly(['X', 'O', null]) &&
+        grids['1'] is list && grids['1'].size() == 9 && grids['1'].hasOnly(['X', 'O', null]) &&
+        grids['2'] is list && grids['2'].size() == 9 && grids['2'].hasOnly(['X', 'O', null]) &&
+        grids['3'] is list && grids['3'].size() == 9 && grids['3'].hasOnly(['X', 'O', null]) &&
+        grids['4'] is list && grids['4'].size() == 9 && grids['4'].hasOnly(['X', 'O', null]) &&
+        grids['5'] is list && grids['5'].size() == 9 && grids['5'].hasOnly(['X', 'O', null]) &&
+        grids['6'] is list && grids['6'].size() == 9 && grids['6'].hasOnly(['X', 'O', null]) &&
+        grids['7'] is list && grids['7'].size() == 9 && grids['7'].hasOnly(['X', 'O', null]) &&
+        grids['8'] is list && grids['8'].size() == 9 && grids['8'].hasOnly(['X', 'O', null]);
+    }
+
+    function isEmptyBoard(grids, gridWins) {
+      return grids['0'].hasOnly([null]) &&
+        grids['1'].hasOnly([null]) &&
+        grids['2'].hasOnly([null]) &&
+        grids['3'].hasOnly([null]) &&
+        grids['4'].hasOnly([null]) &&
+        grids['5'].hasOnly([null]) &&
+        grids['6'].hasOnly([null]) &&
+        grids['7'].hasOnly([null]) &&
+        grids['8'].hasOnly([null]) &&
+        gridWins.hasOnly([null]);
+    }
+
+    function isValidLastMove(m) {
+      return m == null || (
+        m is map &&
+        m.keys().hasAll(['gridIndex', 'cellIndex']) &&
+        m.keys().hasOnly(['gridIndex', 'cellIndex']) &&
+        m.gridIndex is int && m.gridIndex >= 0 && m.gridIndex <= 8 &&
+        m.cellIndex is int && m.cellIndex >= 0 && m.cellIndex <= 8
+      );
     }
 
     function isValidLogs(logs) {
@@ -76,11 +99,11 @@ service cloud.firestore {
     function isValidGameRoom(data) {
       return data.keys().hasAll([
           'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner', 'players', 'logs'
+          'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
         ]) &&
         data.keys().hasOnly([
           'roomCode', 'status', 'createdAt', 'currentTurn',
-          'nextGridIndex', 'grids', 'gridWins', 'winner', 'players', 'logs'
+          'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'players', 'logs'
         ]) &&
         isValidRoomId(data.roomCode) &&
         data.status in ['waiting', 'playing', 'finished'] &&
@@ -88,10 +111,93 @@ service cloud.firestore {
         data.currentTurn in ['X', 'O'] &&
         (data.nextGridIndex == null || (data.nextGridIndex is int && data.nextGridIndex >= 0 && data.nextGridIndex <= 8)) &&
         isValidGrids(data.grids) &&
-        data.gridWins is list && data.gridWins.size() == 9 &&
+        data.gridWins is list && data.gridWins.size() == 9 && data.gridWins.hasOnly(['X', 'O', 'DRAW', null]) &&
         (data.winner == null || data.winner in ['X', 'O', 'DRAW']) &&
+        isValidLastMove(data.lastMove) &&
         isValidPlayers(data.players) &&
         isValidLogs(data.logs);
+    }
+
+    function hasWon(b, p) {
+      return (b[0] == p && b[1] == p && b[2] == p) ||
+        (b[3] == p && b[4] == p && b[5] == p) ||
+        (b[6] == p && b[7] == p && b[8] == p) ||
+        (b[0] == p && b[3] == p && b[6] == p) ||
+        (b[1] == p && b[4] == p && b[7] == p) ||
+        (b[2] == p && b[5] == p && b[8] == p) ||
+        (b[0] == p && b[4] == p && b[8] == p) ||
+        (b[2] == p && b[4] == p && b[6] == p);
+    }
+
+    function isFull(b) {
+      return b[0] != null && b[1] != null && b[2] != null &&
+        b[3] != null && b[4] != null && b[5] != null &&
+        b[6] != null && b[7] != null && b[8] != null;
+    }
+
+    function otherGridsUnchanged(incGrids, extGrids, gStr) {
+      return (gStr == '0' || incGrids['0'] == extGrids['0']) &&
+        (gStr == '1' || incGrids['1'] == extGrids['1']) &&
+        (gStr == '2' || incGrids['2'] == extGrids['2']) &&
+        (gStr == '3' || incGrids['3'] == extGrids['3']) &&
+        (gStr == '4' || incGrids['4'] == extGrids['4']) &&
+        (gStr == '5' || incGrids['5'] == extGrids['5']) &&
+        (gStr == '6' || incGrids['6'] == extGrids['6']) &&
+        (gStr == '7' || incGrids['7'] == extGrids['7']) &&
+        (gStr == '8' || incGrids['8'] == extGrids['8']);
+    }
+
+    function otherCellsUnchanged(incGrid, extGrid, c) {
+      return (c == 0 || incGrid[0] == extGrid[0]) &&
+        (c == 1 || incGrid[1] == extGrid[1]) &&
+        (c == 2 || incGrid[2] == extGrid[2]) &&
+        (c == 3 || incGrid[3] == extGrid[3]) &&
+        (c == 4 || incGrid[4] == extGrid[4]) &&
+        (c == 5 || incGrid[5] == extGrid[5]) &&
+        (c == 6 || incGrid[6] == extGrid[6]) &&
+        (c == 7 || incGrid[7] == extGrid[7]) &&
+        (c == 8 || incGrid[8] == extGrid[8]);
+    }
+
+    function otherGridWinsUnchanged(incWins, extWins, g) {
+      return (g == 0 || incWins[0] == extWins[0]) &&
+        (g == 1 || incWins[1] == extWins[1]) &&
+        (g == 2 || incWins[2] == extWins[2]) &&
+        (g == 3 || incWins[3] == extWins[3]) &&
+        (g == 4 || incWins[4] == extWins[4]) &&
+        (g == 5 || incWins[5] == extWins[5]) &&
+        (g == 6 || incWins[6] == extWins[6]) &&
+        (g == 7 || incWins[7] == extWins[7]) &&
+        (g == 8 || incWins[8] == extWins[8]);
+    }
+
+    function isValidMoveTransition(inc, ext) {
+      let g = inc.lastMove.gridIndex;
+      let c = inc.lastMove.cellIndex;
+      let gStr = string(g);
+      let turn = ext.currentTurn;
+      let opp = turn == 'X' ? 'O' : 'X';
+      let incGrid = inc.grids[gStr];
+      let extGrid = ext.grids[gStr];
+      return inc.lastMove != null &&
+        ext.winner == null &&
+        ext.gridWins[g] == null &&
+        (ext.nextGridIndex == null || ext.nextGridIndex == g || ext.gridWins[ext.nextGridIndex] != null) &&
+        extGrid[c] == null &&
+        incGrid[c] == turn &&
+        otherGridsUnchanged(inc.grids, ext.grids, gStr) &&
+        otherCellsUnchanged(incGrid, extGrid, c) &&
+        otherGridWinsUnchanged(inc.gridWins, ext.gridWins, g) &&
+        (hasWon(incGrid, turn)
+          ? inc.gridWins[g] == turn
+          : (isFull(incGrid) ? inc.gridWins[g] == 'DRAW' : inc.gridWins[g] == null)) &&
+        (hasWon(inc.gridWins, turn)
+          ? (inc.winner == turn && inc.status == 'finished')
+          : (isFull(inc.gridWins)
+              ? (inc.winner == 'DRAW' && inc.status == 'finished')
+              : (inc.winner == null && inc.status == 'playing'))) &&
+        (inc.gridWins[c] != null ? inc.nextGridIndex == null : inc.nextGridIndex == c) &&
+        inc.currentTurn == opp;
     }
 
     function isParticipant() {
@@ -113,14 +219,15 @@ service cloud.firestore {
     function isMoveAction() {
       return isParticipant() &&
         existing().status == 'playing' &&
-        incoming().status in ['playing', 'finished'] &&
+        existing().players.O.uid != null &&
         incoming().players == existing().players &&
         (
-          (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid && incoming().currentTurn == 'O') ||
-          (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid && incoming().currentTurn == 'X')
+          (existing().currentTurn == 'X' && request.auth.uid == existing().players.X.uid) ||
+          (existing().currentTurn == 'O' && request.auth.uid == existing().players.O.uid)
         ) &&
+        isValidMoveTransition(incoming(), existing()) &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'status', 'logs'
+          'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'status', 'lastMove', 'logs'
         ]);
     }
 
@@ -148,9 +255,11 @@ service cloud.firestore {
         incoming().currentTurn == 'X' &&
         incoming().nextGridIndex == null &&
         incoming().winner == null &&
+        incoming().lastMove == null &&
+        isEmptyBoard(incoming().grids, incoming().gridWins) &&
         incoming().players == existing().players &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'status', 'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'logs'
+          'status', 'currentTurn', 'nextGridIndex', 'grids', 'gridWins', 'winner', 'lastMove', 'logs'
         ]);
     }
 
@@ -166,6 +275,8 @@ service cloud.firestore {
         incoming().currentTurn == 'X' &&
         incoming().nextGridIndex == null &&
         incoming().winner == null &&
+        incoming().lastMove == null &&
+        isEmptyBoard(incoming().grids, incoming().gridWins) &&
         incoming().createdAt == request.time &&
         incoming().players.X.uid == request.auth.uid &&
         incoming().players.O.uid == null;

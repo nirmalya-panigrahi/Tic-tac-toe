@@ -9,17 +9,6 @@ import {
   User,
 } from 'firebase/auth';
 import {
-  getDatabase,
-  Database,
-  ref,
-  set,
-  get,
-  update,
-  onValue,
-  onDisconnect,
-  serverTimestamp as rtdbServerTimestamp,
-} from 'firebase/database';
-import {
   getFirestore,
   Firestore,
   doc,
@@ -35,7 +24,6 @@ import appletConfig from '../firebase-applet-config.json';
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || '',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket,
   messagingSenderId:
@@ -59,43 +47,30 @@ export const missingFirebaseEnvVars: string[] = CORE_CONFIG_KEYS.filter(
   (key) => !firebaseConfig[key] || firebaseConfig[key].trim() === ''
 ).map((key) => `VITE_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`);
 
-export type FirebaseTransport = 'rtdb' | 'firestore' | null;
-
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
-let db: Database | null = null;
 let firestore: Firestore | null = null;
-let transport: FirebaseTransport = null;
 let firebaseInitError: string | null = null;
 
 if (missingFirebaseEnvVars.length === 0) {
   try {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
-
-    if (firebaseConfig.databaseURL && firebaseConfig.databaseURL.trim() !== '') {
-      db = getDatabase(app);
-      transport = 'rtdb';
-    } else {
-      firestore = firestoreDatabaseId
-        ? getFirestore(app, firestoreDatabaseId)
-        : getFirestore(app);
-      transport = 'firestore';
-    }
+    firestore = firestoreDatabaseId
+      ? getFirestore(app, firestoreDatabaseId)
+      : getFirestore(app);
   } catch (err) {
     firebaseInitError = err instanceof Error ? err.message : 'Failed to initialize Firebase.';
     app = null;
     auth = null;
-    db = null;
     firestore = null;
-    transport = null;
   }
 }
 
 export const googleProvider = new GoogleAuthProvider();
 
 export const isFirebaseConfigured = Boolean(
-  app && (db || firestore) && missingFirebaseEnvVars.length === 0
+  app && firestore && auth && missingFirebaseEnvVars.length === 0
 );
 
 export enum OperationType {
@@ -168,20 +143,11 @@ if (firestore) {
 export {
   app,
   auth,
-  db,
   firestore,
-  transport,
   firebaseInitError,
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  ref,
-  set,
-  get,
-  update,
-  onValue,
-  onDisconnect,
-  rtdbServerTimestamp,
   doc,
   setDoc,
   getDoc,

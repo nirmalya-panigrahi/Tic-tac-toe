@@ -7,10 +7,10 @@
       "properties": {
         "roomCode": {
           "type": "string",
-          "minLength": 6,
-          "maxLength": 6,
-          "pattern": "^[A-Z0-9]{6}$",
-          "description": "6-character uppercase alphanumeric room identifier."
+          "minLength": 12,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]{12}$",
+          "description": "12-character cryptographically random uppercase alphanumeric room identifier."
         },
         "status": {
           "type": "string",
@@ -44,6 +44,10 @@
           "enum": ["X", "O", "DRAW"],
           "description": "Overall match winner or DRAW, null while in progress."
         },
+        "lastMove": {
+          "type": "object",
+          "description": "Most recent move coordinates { gridIndex, cellIndex }, or null before the first move."
+        },
         "players": {
           "type": "object",
           "description": "Participant metadata for X and O including uid, display name, and connection state."
@@ -62,6 +66,7 @@
         "grids",
         "gridWins",
         "winner",
+        "lastMove",
         "players",
         "logs"
       ]
@@ -72,7 +77,7 @@
       "schema": {
         "$ref": "#/entities/GameRoom"
       },
-      "description": "Real-time multiplayer match rooms keyed by 6-character room code."
+      "description": "Real-time multiplayer match rooms keyed by 12-character room code."
     }
   }
 }

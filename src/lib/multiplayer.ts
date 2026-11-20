@@ -1,11 +1,14 @@
 import { BoardState, CellValue, GridWinner, Move, Player, RoomState, RoomWinner } from '../types';
 
-const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 chars (unbiased with Uint32)
+export const ROOM_CODE_LENGTH = 12;
 
-export function generateRoomCode(length = 6): string {
+export function generateRoomCode(length = ROOM_CODE_LENGTH): string {
+  const randomValues = new Uint32Array(length);
+  crypto.getRandomValues(randomValues);
   let code = '';
   for (let i = 0; i < length; i++) {
-    code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    code += ROOM_CODE_CHARS[randomValues[i] % ROOM_CODE_CHARS.length];
   }
   return code;
 }
@@ -36,11 +39,10 @@ export function toRoomWinner(val: GridWinner): RoomWinner {
   return val;
 }
 
-/**
- * Firebase Realtime Database strips `null` values and converts sparse arrays into objects.
- * This normalizer guarantees deterministic 9x9 grids, 9 gridWins, and explicit nulls.
- */
-export function normalizeRoomState(raw: Record<string, unknown> | null | undefined, fallbackCode: string): RoomState {
+export function normalizeRoomState(
+  raw: Record<string, unknown> | null | undefined,
+  fallbackCode: string
+): RoomState {
   const rawGrids = (raw?.grids ?? {}) as Record<string, Record<string, unknown> | unknown[]>;
   const grids: CellValue[][] = Array.from({ length: 9 }, (_, gIdx) => {
     const rawGrid = rawGrids?.[gIdx] ?? {};
@@ -58,6 +60,14 @@ export function normalizeRoomState(raw: Record<string, unknown> | null | undefin
   const rawNext = raw?.nextGridIndex;
   const nextGridIndex =
     typeof rawNext === 'number' && rawNext >= 0 && rawNext <= 8 ? rawNext : null;
+
+  const rawLastMove = raw?.lastMove as Record<string, unknown> | null | undefined;
+  const lastMove: Move | null =
+    rawLastMove &&
+    typeof rawLastMove.gridIndex === 'number' &&
+    typeof rawLastMove.cellIndex === 'number'
+      ? { gridIndex: rawLastMove.gridIndex, cellIndex: rawLastMove.cellIndex }
+      : null;
 
   const rawPlayers = (raw?.players ?? {}) as Record<string, Record<string, unknown>>;
   const playerX = rawPlayers?.X ?? {};
@@ -88,6 +98,7 @@ export function normalizeRoomState(raw: Record<string, unknown> | null | undefin
     grids,
     gridWins,
     winner,
+    lastMove,
     players: {
       X: {
         uid: typeof playerX.uid === 'string' ? playerX.uid : null,

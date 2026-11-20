@@ -47,6 +47,7 @@ export interface RoomState {
   grids: CellValue[][];
   gridWins: RoomWinner[];
   winner: RoomWinner;
+  lastMove: Move | null;
   players: {
     X: RoomPlayer;
     O: RoomPlayer;
