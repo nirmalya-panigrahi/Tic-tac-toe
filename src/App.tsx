@@ -396,9 +396,20 @@ export default function App() {
 
   const extractReadableError = (err: unknown, fallback: string): string => {
     if (!(err instanceof Error)) return fallback;
+    const projectId = app?.options.projectId;
     try {
-      const parsed = JSON.parse(err.message) as { error?: string };
-      if (parsed && typeof parsed.error === 'string') return parsed.error;
+      const parsed = JSON.parse(err.message) as {
+        error?: string;
+        operationType?: string;
+        path?: string | null;
+      };
+      if (parsed && typeof parsed.error === 'string') {
+        if (parsed.error.toLowerCase().includes('permission') && projectId) {
+          const op = parsed.operationType ? ` [${parsed.operationType}]` : '';
+          return `${parsed.error}${op} (Firebase project: ${projectId})`;
+        }
+        return parsed.error;
+      }
     } catch {
       // Not JSON-wrapped
     }
