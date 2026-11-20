@@ -40,6 +40,7 @@ import {
 import { createInitialState, makeMove, isValidMove } from './lib/gameEngine';
 import { getBestMove, evaluateHeuristic } from './lib/aiEngine';
 import {
+  app,
   auth,
   googleProvider,
   isFirebaseConfigured,
@@ -411,7 +412,26 @@ export default function App() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setMultiplayerError(extractReadableError(err, 'Google sign-in failed.'));
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code?: unknown }).code)
+          : '';
+      if (code === 'auth/unauthorized-domain') {
+        const host =
+          typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        const projectId = app?.options.projectId || 'your Firebase project';
+        setMultiplayerError(
+          `Domain "${host}" is not authorized for Google sign-in in Firebase project "${projectId}". Add "${host}" in Firebase Console → Authentication → Settings → Authorized domains.`
+        );
+      } else if (code === 'auth/popup-blocked') {
+        setMultiplayerError(
+          'Sign-in popup was blocked by your browser. Allow popups for this site and try again.'
+        );
+      } else if (code === 'auth/popup-closed-by-user') {
+        setMultiplayerError('Sign-in popup was closed before completing authentication.');
+      } else {
+        setMultiplayerError(extractReadableError(err, 'Google sign-in failed.'));
+      }
     } finally {
       setIsAuthBusy(false);
     }
