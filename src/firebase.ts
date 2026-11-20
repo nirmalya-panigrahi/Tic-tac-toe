@@ -121,6 +121,9 @@ export function handleFirestoreError(
     operationType,
     path,
   };
+  console.warn(
+    `Firestore target -> projectId: ${firebaseConfig.projectId}, databaseId: ${firestoreDatabaseId || '(default)'}`
+  );
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
